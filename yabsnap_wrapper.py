@@ -46,6 +46,45 @@ def execute_script(filename):
     except subprocess.CalledProcessError as e:
         npyscreen.notify_confirm(f"An error occurred during script execution: {e}", title="Error")
 
+def delete_snapshot(timestamp, dry_run):
+    try:
+        cmd = ['sudo', 'yabsnap', 'delete', timestamp]
+        if dry_run:
+            cmd.append('--dry-run')
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            npyscreen.notify_confirm("Error deleting snapshot:\n" + result.stderr, title="Error")
+        else:
+            npyscreen.notify_confirm("Snapshot deleted successfully" + (" (dry run)" if dry_run else ""), title="Success")
+    except Exception as e:
+        npyscreen.notify_confirm(f"An error occurred: {e}", title="Error")
+
+def create_snapshot(dry_run):
+    try:
+        cmd = ['sudo', 'yabsnap', 'create']
+        if dry_run:
+            cmd.append('--dry-run')
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            npyscreen.notify_confirm("Error creating snapshot:\n" + result.stderr, title="Error")
+        else:
+            npyscreen.notify_confirm("Snapshot created successfully" + (" (dry run)" if dry_run else ""), title="Success")
+    except Exception as e:
+        npyscreen.notify_confirm(f"An error occurred: {e}", title="Error")
+
+def create_recovery_snapshot(dry_run):
+    try:
+        cmd = ['sudo', 'yabsnap', 'create-recovery']
+        if dry_run:
+            cmd.append('--dry-run')
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            npyscreen.notify_confirm("Error creating recovery snapshot:\n" + result.stderr, title="Error")
+        else:
+            npyscreen.notify_confirm("Recovery snapshot created successfully" + (" (dry run)" if dry_run else ""), title="Success")
+    except Exception as e:
+        npyscreen.notify_confirm(f"An error occurred: {e}", title="Error")
+
 class SnapshotSelectorApp(npyscreen.NPSAppManaged):
     def __init__(self, args):
         self.args = args
@@ -79,6 +118,20 @@ class SnapshotSelectorForm(npyscreen.ActionForm):
         self.snapshot_list.values = formatted_snapshots
         self.snapshot_list.display()
 
+    def while_waiting(self):
+        self.handle_keys()
+
+    def handle_keys(self):
+        k = self.parentApp.getKey()
+        if k in ('d', 'D'):
+            self.on_delete()
+        elif k in ('c', 'C'):
+            self.on_create()
+        elif k in ('r', 'R'):
+            self.on_create_recovery()
+        elif k == 27:  # Esc key
+            self.parentApp.setNextForm(None)
+
     def on_ok(self):
         selected_index = self.snapshot_list.value[0]
         selected_timestamp = self.timestamp_list[selected_index]
@@ -92,10 +145,28 @@ class SnapshotSelectorForm(npyscreen.ActionForm):
     def on_cancel(self):
         self.parentApp.setNextForm(None)
 
+    def on_delete(self):
+        selected_index = self.snapshot_list.value[0]
+        selected_timestamp = self.timestamp_list[selected_index]
+        delete_snapshot(selected_timestamp, self.parentApp.args.dry_run)
+        self.snapshots = get_snapshots()
+        self.update_snapshot_list()
+
+    def on_create(self):
+        create_snapshot(self.parentApp.args.dry_run)
+        self.snapshots = get_snapshots()
+        self.update_snapshot_list()
+
+    def on_create_recovery(self):
+        create_recovery_snapshot(self.parentApp.args.dry_run)
+        self.snapshots = get_snapshots()
+        self.update_snapshot_list()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Yabsnap rollback script generator.")
     parser.add_argument('-o', '--output', type=str, default='rollback.sh', help='Output file for the rollback script')
+    parser.add_argument('--dry-run', action='store_true', help='Dry run without making any changes')
     args = parser.parse_args()
-    
+
     app = SnapshotSelectorApp(args)
     app.run()
