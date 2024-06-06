@@ -1,1 +1,11 @@
+altgraph==0.17.4
+jq==1.7.0
 npyscreen==4.10.5
+packaging==24.0
+prompt_toolkit==3.0.45
+pyinstaller==6.7.0
+pyinstaller-hooks-contrib==2024.6
+setuptools==70.0.0
+typing_extensions==4.12.1
+urwid==2.6.12
+wcwidth==0.2.13
